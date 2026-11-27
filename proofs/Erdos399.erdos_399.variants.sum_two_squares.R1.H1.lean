@@ -1,31 +1,24 @@
 import OMAReductions.R_Erdos399_erdos_399_variants_sum_two_squares_R1
 
--- Step Erdos399.erdos_399.variants.sum_two_squares.R1.H1: hypothesis H1 of reduction Erdos399.erdos_399.variants.sum_two_squares.R1
--- Credit: @JamesSlash
--- H1 := ∀ n : ℕ, 7 ≤ n → n ≤ 100 →   ∃ q : ℕ, q.Prime ∧ q % 4 = 3 ∧ n < 2 * q ∧ q ≤ n
---
--- Proof: the primes 7, 11, 19, 31, 43, 59 are all congruent to 3 mod 4, and the
--- half-open windows [7, 14), [11, 22), [19, 38), [31, 62), [43, 86), [59, 118)
--- cover every n with 7 ≤ n ≤ 100.
+/-!
+For each n from 7 to 100, one prime q ≡ 3 mod 4 satisfies q ≤ n < 2 q.
+The eight primes 7, 11, 19, 23, 31, 43, 47 and 59 cover the whole interval.
+-/
 
-namespace OMA.Erdos399SumTwoSquaresH1
-
-theorem window (n : ℕ) (h1 : 7 ≤ n) (h2 : n ≤ 100) :
-    ∃ q : ℕ, q.Prime ∧ q % 4 = 3 ∧ n < 2 * q ∧ q ≤ n := by
-  rcases Nat.lt_or_ge n 11 with h | h
-  · exact ⟨7, by norm_num, by norm_num, by omega, by omega⟩
-  rcases Nat.lt_or_ge n 19 with h' | h'
-  · exact ⟨11, by norm_num, by norm_num, by omega, by omega⟩
-  rcases Nat.lt_or_ge n 31 with h'' | h''
-  · exact ⟨19, by norm_num, by norm_num, by omega, by omega⟩
-  rcases Nat.lt_or_ge n 43 with h''' | h'''
-  · exact ⟨31, by norm_num, by norm_num, by omega, by omega⟩
-  rcases Nat.lt_or_ge n 59 with h'''' | h''''
-  · exact ⟨43, by norm_num, by norm_num, by omega, by omega⟩
-  · exact ⟨59, by norm_num, by norm_num, by omega, by omega⟩
-
-end OMA.Erdos399SumTwoSquaresH1
-
-theorem OMA.solution : OMA.R_Erdos399_erdos_399_variants_sum_two_squares_R1.H1 := by
-  intro n h1 h2
-  exact OMA.Erdos399SumTwoSquaresH1.window n h1 h2
+theorem OMA.solution :
+    OMA.R_Erdos399_erdos_399_variants_sum_two_squares_R1.H1 := by
+  intro n hn hle
+  let q : ℕ :=
+    if n < 14 then 7
+    else if n < 22 then 11
+    else if n < 38 then 19
+    else if n < 46 then 23
+    else if n < 62 then 31
+    else if n < 86 then 43
+    else if n < 94 then 47
+    else 59
+  refine ⟨q, ?_, ?_, ?_, ?_⟩
+  all_goals
+    dsimp [q]
+    set_option maxRecDepth 10000 in
+    interval_cases n <;> decide
