@@ -2,8 +2,8 @@ import FormalConjectures.Arxiv.«0805.3777».TensorRank
 
 /-! # Bounds for the maximum CP rank of complex cubic tensors
 
-Every complex tensor of odd side length n ≥ 3 has rank at most n(n+1)/2−1.
-In particular the upper bounds at sides five and seven are 14 and 27.
+Every complex cubic tensor of side n ≥ 3 has rank at most n(n+1)/2−1.
+The bounds at sides five, six, seven and eight are 14, 20, 27 and 35.
 At side four every tensor has rank at most nine, and multiplication in the
 exterior algebra on two generators has rank eight. A suspension of any
 rectangular tensor increases its rank by two. Iterating it from the exterior
@@ -6513,3 +6513,1214 @@ theorem max_rank_le_of_three_le {n R : ℕ} (hn : 3 ≤ n) (odd : Odd n) (hm : I
   exact cprank_le_of_three_le hn odd T
 
 end MaxCube.OddCube
+
+namespace MaxCube.EvenLow
+
+/-- The other n−1 slices cost at most n²/2 terms. A contraction of rank below
+n/2 supplies the remaining terms and saves one from the usual even-cube bound. -/
+private lemma first_mode_of_eq {n k : ℕ} (hn : n = 2*k) (hk : 3 ≤ k)
+    (T : Fin n → Matrix (Fin n) (Fin n) ℂ) (p : Fin n → ℂ) (hp : p ≠ 0)
+    (hlow : (Matrix.of (fun j l => ∑ i, p i*T i j l)).rank ≤ k-1) :
+    Decomp n n n (k*n+k-1) T := by
+  cases n with
+  | zero => omega
+  | succ a =>
+    have core (U : Fin a → Matrix (Fin (a+1)) (Fin (a+1)) ℂ) :
+        Decomp a (a+1) (a+1) ((a+1)*(a+1)/2) U :=
+      (cprank_le_iff_decomp U _).mp
+        (@OddLow.Source.square_slices_bound a (a+1) (by omega) (by omega) (coordinateHolor U))
+    have whole := decomp_of_contraction_rank_le core T p hp hlow
+    have double : (a+1)*(a+1) = (k*(a+1))*2 := by
+      calc
+        _ = (2*k)*(a+1) := congrArg (fun m => m*(a+1)) hn
+        _ = _ := by ring
+    have count : (a+1)*(a+1)/2+(k-1) = k*(a+1)+k-1 := by
+      rw [double, Nat.mul_div_cancel _ (by decide : 0<2)]
+      omega
+    rwa [count] at whole
+
+theorem first_mode {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (p : Fin (2*k) → ℂ) (hp : p ≠ 0)
+    (hlow : (Matrix.of (fun j l => ∑ i, p i*T i j l)).rank ≤ k-1) :
+    Decomp (2*k) (2*k) (2*k) (k*(2*k)+k-1) T :=
+  first_mode_of_eq rfl hk T p hp hlow
+
+theorem second_mode {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (p : Fin (2*k) → ℂ) (hp : p ≠ 0)
+    (hlow : (Matrix.of (fun l i => ∑ j, p j*T i j l)).rank ≤ k-1) :
+    Decomp (2*k) (2*k) (2*k) (k*(2*k)+k-1) T :=
+  OddLow.unrotate T (first_mode hk (fun j l i => T i j l) p hp hlow)
+
+theorem third_mode {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (p : Fin (2*k) → ℂ) (hp : p ≠ 0)
+    (hlow : (Matrix.of (fun i j => ∑ l, p l*T i j l)).rank ≤ k-1) :
+    Decomp (2*k) (2*k) (2*k) (k*(2*k)+k-1) T :=
+  OddLow.unrotate T (second_mode hk (fun j l i => T i j l) p hp hlow)
+
+theorem cprank_of_low_mode {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (p : Fin (2*k) → ℂ) (hp : p ≠ 0)
+    (hlow : (Matrix.of (fun j l => ∑ i, p i*T i j l)).rank ≤ k-1 ∨
+      (Matrix.of (fun l i => ∑ j, p j*T i j l)).rank ≤ k-1 ∨
+      (Matrix.of (fun i j => ∑ l, p l*T i j l)).rank ≤ k-1) :
+    (coordinateHolor T).cprank ≤ k*(2*k)+k-1 := by
+  apply (cprank_le_iff_decomp T _).mpr
+  rcases hlow with h | h | h
+  · exact first_mode hk T p hp h
+  · exact second_mode hk T p hp h
+  · exact third_mode hk T p hp h
+
+/-- A counterexample to the improved even-cube bound has contraction rank at
+least n/2 on every nonzero coefficient vector in each of its three modes. -/
+theorem all_contractions_large {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (h : ¬ Decomp (2*k) (2*k) (2*k) (k*(2*k)+k-1) T)
+    (p : Fin (2*k) → ℂ) (hp : p ≠ 0) :
+    k ≤ (Matrix.of (fun j l => ∑ i, p i*T i j l)).rank ∧
+    k ≤ (Matrix.of (fun l i => ∑ j, p j*T i j l)).rank ∧
+    k ≤ (Matrix.of (fun i j => ∑ l, p l*T i j l)).rank := by
+  refine ⟨?_,?_,?_⟩
+  · by_contra! small
+    exact h (first_mode hk T p hp (by omega))
+  · by_contra! small
+    exact h (second_mode hk T p hp (by omega))
+  · by_contra! small
+    exact h (third_mode hk T p hp (by omega))
+
+end MaxCube.EvenLow
+
+namespace MaxCube.OddCore
+
+/-- Select a preimage with two nonzero images and a second preimage independent
+in the first image. A fixed nonzero kernel vector supplies a third independent
+coefficient vector. -/
+private lemma choose_linear {E U V : Type*} [AddCommGroup E] [Module ℂ E]
+    [AddCommGroup U] [Module ℂ U] [AddCommGroup V] [Module ℂ V]
+    (A : E →ₗ[ℂ] U) (R : E →ₗ[ℂ] V) (q : E) (hq : q≠0) (hAq : A q=0)
+    (rankA : 1<Module.finrank ℂ (LinearMap.range A)) (hR : R≠0) :
+    ∃ b z : E, LinearIndependent ℂ ![q,b,z] ∧
+      (∀ u v : ℂ, u • A b + v • A z = 0 → u=0 ∧ v=0) ∧ R b≠0 := by
+  classical
+  have hA : A≠0 := by
+    intro h
+    have hb := (LinearMap.range_eq_bot.mpr h)
+    have dz : Module.finrank ℂ (LinearMap.range A)=0 :=
+      (congrArg (fun W : Submodule ℂ U => Module.finrank ℂ W) hb).trans (finrank_bot ℂ U)
+    omega
+  obtain ⟨x,hx⟩ : ∃ x, A x≠0 := by
+    by_contra! h
+    exact hA (LinearMap.ext h)
+  obtain ⟨y,hy⟩ : ∃ y, R y≠0 := by
+    by_contra! h
+    exact hR (LinearMap.ext h)
+  obtain ⟨b,ab,rb⟩ : ∃ b, A b≠0 ∧ R b≠0 := by
+    by_cases rx : R x=0
+    · by_cases ay : A y=0
+      · exact ⟨x+y,by simpa only [map_add,ay,add_zero] using hx,
+          by simpa only [map_add,rx,zero_add] using hy⟩
+      · exact ⟨y,ay,hy⟩
+    · exact ⟨x,hx,rx⟩
+  let u : LinearMap.range A := ⟨A b,b,rfl⟩
+  have un : u≠0 := fun h => ab (congrArg Subtype.val h)
+  obtain ⟨s,ind⟩ := exists_linearIndependent_pair_of_one_lt_finrank rankA un
+  obtain ⟨z,hz⟩ := s.property
+  have separate (c d : ℂ) (h : c • A b + d • A z=0) : c=0 ∧ d=0 := by
+    have eq : c • u + d • s=0 := by
+      apply Subtype.ext
+      change c • A b + d • s.val=0
+      rwa [← hz]
+    have relation : ∑ i : Fin 2, (![c,d] : Fin 2 → ℂ) i • (![u,s] : Fin 2 → LinearMap.range A) i=0 := by
+      simpa [Fin.sum_univ_two] using eq
+    have all := Fintype.linearIndependent_iff.mp ind (![c,d] : Fin 2 → ℂ) relation
+    exact ⟨all 0,all 1⟩
+  refine ⟨b,z,?_,separate,rb⟩
+  apply Fintype.linearIndependent_iff.mpr
+  intro f hf i
+  have sum : f 0 • q + f 1 • b + f 2 • z = 0 := by
+    simpa [Fin.sum_univ_three,add_assoc] using hf
+  have image : f 1 • A b + f 2 • A z=0 := by
+    simpa only [map_add,map_smul,hAq,smul_zero,zero_add,map_zero] using congrArg A sum
+  obtain ⟨h₁,h₂⟩ := separate _ _ image
+  rw [h₁,h₂,zero_smul,zero_smul,add_zero,add_zero] at sum
+  have h₀ := (smul_eq_zero.mp sum).resolve_right hq
+  fin_cases i <;> assumption
+
+open Matrix
+
+/-- In normalized coordinates, the selected slices have independent j-columns
+and the first one has a nonzero j-row. These are the input tests of CP3.stepB. -/
+theorem choose {m n : ℕ} (T : Fin m → Matrix (Fin n) (Fin n) ℂ)
+    (q : Fin m → ℂ) (D : Fin n → ℂ) (j : Fin n) (hq : q≠0)
+    (hdiag : (∑ s, q s • T s) = Matrix.diagonal D) (hj : D j=0)
+    (highColumn : 2≤(Matrix.of fun i s => T s i j).rank)
+    (highRow : 2≤(Matrix.of fun k s => T s j k).rank) :
+    ∃ b z : Fin m → ℂ, LinearIndependent ℂ ![q,b,z] ∧
+      (∀ c₁ c₂ : ℂ, (∀ i, c₁*(∑ s, b s • T s) i j+c₂*(∑ s, z s • T s) i j=0) →
+        c₁=0 ∧ c₂=0) ∧ ∃ p, (∑ s, b s • T s) j p≠0 := by
+  classical
+  let U := Matrix.of fun i s => T s i j
+  let V := Matrix.of fun k s => T s j k
+  have col (x : Fin m → ℂ) (i : Fin n) : U.mulVecLin x i=(∑ s,x s • T s) i j := by
+    simp only [Matrix.mulVecLin_apply,U,Matrix.mulVec,dotProduct,Matrix.of_apply,Matrix.sum_apply,
+      Matrix.smul_apply,smul_eq_mul]
+    exact Finset.sum_congr rfl fun k _ => mul_comm _ _
+  have row (x : Fin m → ℂ) (i : Fin n) : V.mulVecLin x i=(∑ s,x s • T s) j i := by
+    simp only [Matrix.mulVecLin_apply,V,Matrix.mulVec,dotProduct,Matrix.of_apply,Matrix.sum_apply,
+      Matrix.smul_apply,smul_eq_mul]
+    exact Finset.sum_congr rfl fun k _ => mul_comm _ _
+  have uq : U.mulVecLin q=0 := by
+    funext i
+    rw [col,hdiag]
+    by_cases h : i=j
+    · subst i
+      simp [hj]
+    · simp [h]
+  change 2≤Module.finrank ℂ (LinearMap.range U.mulVecLin) at highColumn
+  change 2≤Module.finrank ℂ (LinearMap.range V.mulVecLin) at highRow
+  have rv : V.mulVecLin ≠ 0 := by
+    intro h
+    have hb := (LinearMap.range_eq_bot.mpr h)
+    have dz : Module.finrank ℂ (LinearMap.range V.mulVecLin)=0 :=
+      (congrArg (fun W : Submodule ℂ (Fin n → ℂ) => Module.finrank ℂ W) hb).trans (finrank_bot ℂ _)
+    omega
+  obtain ⟨b,z,ind,split,rb⟩ := choose_linear U.mulVecLin V.mulVecLin q hq uq highColumn rv
+  refine ⟨b,z,ind,?_,?_⟩
+  · intro c₁ c₂ h
+    apply split
+    funext i
+    simpa only [Pi.add_apply,Pi.smul_apply,smul_eq_mul,col,Pi.zero_apply] using h i
+  · by_contra! h
+    apply rb
+    funext i
+    exact (row b i).trans (h i)
+
+end MaxCube.OddCore
+
+namespace MaxCube.OddCore
+
+open Matrix
+
+/-- A fixed column of the normalized slice pencil is the third-mode
+contraction at the matching column of Q, followed by multiplication by P.
+A fixed row similarly tests the second-mode contraction at the matching row of P. -/
+theorem transport {m n : ℕ} (T : Fin m → Matrix (Fin n) (Fin n) ℂ)
+    (P Q : Matrix (Fin n) (Fin n) ℂ) (hP : P.det≠0) (hQ : Q.det≠0) (j : Fin n)
+    (third : ∀ x : Fin n → ℂ, x≠0 → 2≤(Matrix.of (fun i s => ∑ k,x k*T s i k)).rank)
+    (second : ∀ y : Fin n → ℂ, y≠0 → 2≤(Matrix.of (fun k s => ∑ i,y i*T s i k)).rank) :
+    2≤(Matrix.of (fun i s => (P*T s*Q) i j)).rank ∧ 2≤(Matrix.of (fun k s => (P*T s*Q) j k)).rank := by
+  classical
+  have colNZ : (fun k => Q k j) ≠ 0 :=
+    (Matrix.linearIndependent_cols_of_det_ne_zero hQ).ne_zero j
+  have rowNZ : (fun i => P j i) ≠ 0 :=
+    (Matrix.linearIndependent_cols_of_det_ne_zero
+      (show P.transpose.det≠0 by rwa [Matrix.det_transpose])).ne_zero j
+  let C := Matrix.of (fun i s => ∑ k,Q k j*T s i k)
+  let R := Matrix.of (fun k s => ∑ i,P j i*T s i k)
+  have cols : Matrix.of (fun i s => (P*T s*Q) i j) = P*C := by
+    ext i s
+    simp only [C,Matrix.of_apply,Matrix.mul_apply,Finset.sum_mul,Finset.mul_sum]
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl
+    intro x _
+    apply Finset.sum_congr rfl
+    intro y _
+    ring
+  have rows : Matrix.of (fun k s => (P*T s*Q) j k) = Q.transpose*R := by
+    ext k s
+    simp only [R,Matrix.of_apply,Matrix.mul_apply,Matrix.transpose_apply,Finset.sum_mul,Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro x _
+    apply Finset.sum_congr rfl
+    intro y _
+    ring
+  rw [cols,rows,Matrix.rank_mul_eq_right_of_det_ne_zero P C hP,
+    Matrix.rank_mul_eq_right_of_det_ne_zero Q.transpose R (by rwa [Matrix.det_transpose])]
+  exact ⟨third _ colNZ,second _ rowNZ⟩
+
+theorem normalize_sum {m n : ℕ} (T : Fin m → Matrix (Fin n) (Fin n) ℂ)
+    (P Q : Matrix (Fin n) (Fin n) ℂ) (x : Fin m → ℂ) :
+    (∑ s,x s • (P*T s*Q)) = P*(∑ s,x s • T s)*Q := by
+  simp only [Finset.mul_sum,Finset.sum_mul,Matrix.mul_smul,Matrix.smul_mul]
+
+end MaxCube.OddCore
+
+namespace MaxCube.OddCore
+
+/-- Select two companions to the prescribed singular contraction, using
+only the original tensor's other two contraction-rank hypotheses. -/
+theorem choose_normalized {m n : ℕ} (T : Fin m → Matrix (Fin n) (Fin n) ℂ)
+    (P Q : Matrix (Fin n) (Fin n) ℂ) (hP : P.det≠0) (hQ : Q.det≠0)
+    (q : Fin m → ℂ) (D : Fin n → ℂ) (j : Fin n) (hq : q≠0)
+    (hdiag : P*(∑ s,q s • T s)*Q=Matrix.diagonal D) (hj : D j=0)
+    (third : ∀ x : Fin n → ℂ, x≠0 → 2≤(Matrix.of (fun i s => ∑ k,x k*T s i k)).rank)
+    (second : ∀ y : Fin n → ℂ, y≠0 → 2≤(Matrix.of (fun k s => ∑ i,y i*T s i k)).rank) :
+    ∃ b z : Fin m → ℂ, LinearIndependent ℂ ![q,b,z] ∧
+      (∀ c₁ c₂ : ℂ, (∀ i, c₁*(P*(∑ s,b s • T s)*Q) i j+c₂*(P*(∑ s,z s • T s)*Q) i j=0) →
+        c₁=0 ∧ c₂=0) ∧ ∃ p, (P*(∑ s,b s • T s)*Q) j p≠0 := by
+  obtain ⟨hc,hr⟩ := transport T P Q hP hQ j third second
+  obtain ⟨b,z,ind,sep,row⟩ := choose (fun s => P*T s*Q) q D j hq
+    ((normalize_sum T P Q q).trans hdiag) hj hc hr
+  refine ⟨b,z,ind,?_,?_⟩
+  · simpa only [normalize_sum] using sep
+  · simpa only [normalize_sum] using row
+
+end MaxCube.OddCore
+
+namespace MaxCube.OddCore
+
+open Matrix CP3
+
+/-- Choose three independent coefficient directions whose three unnormalized
+slices admit a rank-one cover containing an invertible matrix. -/
+theorem choose_regular_triple {m n : ℕ} (T : Fin m → Matrix (Fin n) (Fin n) ℂ)
+    (q : Fin m → ℂ) (hq : q≠0) (singular : (∑ s,q s • T s).det=0)
+    (third : ∀ x : Fin n → ℂ, x≠0 → 2≤(Matrix.of (fun i s => ∑ k,x k*T s i k)).rank)
+    (second : ∀ y : Fin n → ℂ, y≠0 → 2≤(Matrix.of (fun k s => ∑ i,y i*T s i k)).rank) :
+    ∃ b z : Fin m → ℂ, LinearIndependent ℂ ![q,b,z] ∧
+      MatchedThree.RegCov (sp3 (∑ s,q s • T s) (∑ s,b s • T s) (∑ s,z s • T s)) (2*n-1) := by
+  classical
+  let A := ∑ s,q s • T s
+  obtain ⟨P,Q,hP,hQ,D,hd,diag⟩ := normal_form A
+  have zero : (diagonal D).det=0 := by rw [←diag,det_mul,det_mul]; change P.det * (∑ s,q s • T s).det * Q.det=0; rw [singular]; ring
+  rw [det_diagonal,Finset.prod_eq_zero_iff] at zero
+  obtain ⟨j,_,hj⟩ := zero
+  obtain ⟨b,z,ind,sep,p,row⟩ := choose_normalized T P Q
+    (isUnit_iff_ne_zero.mp hP) (isUnit_iff_ne_zero.mp hQ) q D j hq diag hj third second
+  let B := ∑ s,b s • T s
+  let Z := ∑ s,z s • T s
+  let B' := P*B*Q
+  let Z' := P*Z*Q
+  have normalized : MatchedThree.RegCov (sp3 (diagonal D) B' Z') (2*Fintype.card (Fin n)-1) := by
+    by_cases badB : ∃ u v, D u=0 ∧ D v=0 ∧ B' u v≠0
+    · obtain ⟨u,v,hu,hv,h⟩ := badB
+      exact MatchedThree.stepA D B' Z' u v hu hv h
+    by_cases badZ : ∃ u v, D u=0 ∧ D v=0 ∧ Z' u v≠0
+    · obtain ⟨u,v,hu,hv,h⟩ := badZ
+      rw [sp3_swap (diagonal D) B' Z']
+      exact MatchedThree.stepA D Z' B' u v hu hv h
+    have block (u v : Fin n) (hu : D u=0) (hv : D v=0) : B' u v=0 ∧ Z' u v=0 :=
+      ⟨by_contra fun h => badB ⟨u,v,hu,hv,h⟩,by_contra fun h => badZ ⟨u,v,hu,hv,h⟩⟩
+    exact MatchedThree.stepB D hd B' Z' block j hj sep p (Or.inl row)
+  refine ⟨b,z,?_⟩
+  change LinearIndependent ℂ ![q,b,z] ∧ MatchedThree.RegCov (sp3 A B Z) (2*n-1)
+  refine ⟨ind,?_⟩
+  have recover (M : Matrix (Fin n) (Fin n) ℂ) : lrMul P⁻¹ Q⁻¹ (lrMul P Q M)=M := by
+    simp only [lrMul_apply]
+    rw [← Matrix.mul_assoc,← Matrix.mul_assoc,Matrix.nonsing_inv_mul _ hP,Matrix.one_mul,
+      Matrix.mul_assoc,Matrix.mul_nonsing_inv _ hQ,Matrix.mul_one]
+  have preserves (M : Matrix (Fin n) (Fin n) ℂ) (hm : M.det≠0) :
+      (lrMul P⁻¹ Q⁻¹ M).det≠0 := by
+    rw [lrMul_apply,det_mul,det_mul,det_nonsing_inv,det_nonsing_inv]
+    exact mul_ne_zero (mul_ne_zero (Ring.isUnit_iff_inverse_ne_zero.mp hP) hm)
+      (Ring.isUnit_iff_inverse_ne_zero.mp hQ)
+  apply MatchedThree.transfer (lrMul P Q) (lrMul P⁻¹ Q⁻¹) (isR1_lrMul _ _) preserves
+    (recover A) (recover B) (recover Z)
+  change MatchedThree.RegCov (sp3 (P*A*Q) B' Z') (2*n-1)
+  rw [diag]
+  simpa only [Fintype.card_fin] using normalized
+
+end MaxCube.OddCore
+
+namespace MaxCube.OddCore
+
+open Matrix CP3
+
+/-- A complex pencil on any two distinct coefficient directions has a nonzero
+coefficient vector where its determinant vanishes. -/
+theorem singular_direction {m n : ℕ} (hm : 2 ≤ m) (hn : 0 < n) (T : Fin m → Matrix (Fin n) (Fin n) ℂ) :
+    ∃ q : Fin m → ℂ, q≠0 ∧ (∑ s,q s • T s).det=0 := by
+  classical
+  let i : Fin m := ⟨0,by omega⟩
+  let j : Fin m := ⟨1,by omega⟩
+  have ne : i≠j := fun h => (by decide : (0:ℕ)≠1) (congrArg Fin.val h)
+  obtain ⟨x,y,nonzero,singular⟩ := CP3.sing_comb (T i) (T j) (by simpa using hn)
+  let q (s : Fin m) : ℂ := (if i=s then x else 0)+(if j=s then y else 0)
+  have qi : q i=x := by simp [q,ne.symm]
+  have qj : q j=y := by simp [q,ne]
+  have nz : q≠0 := by
+    intro zero
+    rcases nonzero with hx|hy
+    · exact hx (qi.symm.trans (congrFun zero i))
+    · exact hy (qj.symm.trans (congrFun zero j))
+  refine ⟨q,nz,?_⟩
+  have eq : (∑ s,q s • T s) = x • T i+y • T j := by
+    simp [q,add_smul,Finset.sum_add_distrib,ite_smul]
+  rwa [eq]
+
+/-- Under the two cross-mode rank conditions there is a regular rank-one
+cover of three slices whose first-mode coefficient directions are independent. -/
+theorem regular_triple_of_high {m n : ℕ} (hm : 2 ≤ m) (hn : 0 < n) (T : Fin m → Matrix (Fin n) (Fin n) ℂ)
+    (third : ∀ x : Fin n → ℂ, x≠0 → 2≤(Matrix.of (fun i s => ∑ k,x k*T s i k)).rank)
+    (second : ∀ y : Fin n → ℂ, y≠0 → 2≤(Matrix.of (fun k s => ∑ i,y i*T s i k)).rank) :
+    ∃ q b z : Fin m → ℂ, LinearIndependent ℂ ![q,b,z] ∧
+      MatchedThree.RegCov (sp3 (∑ s,q s • T s) (∑ s,b s • T s) (∑ s,z s • T s)) (2*n-1) := by
+  obtain ⟨q,hq,hs⟩ := singular_direction hm hn T
+  exact ⟨q,choose_regular_triple T q hq hs third second⟩
+
+end MaxCube.OddCore
+
+namespace MaxCube.OddCore
+
+/-- At least two independent columns and rows survive every nonzero contraction
+in the two matrix coordinates. The matched three-slice bound then extends over
+each additional pair, for an arbitrary square slice size. -/
+theorem decomp_of_high {n s : ℕ} (T : Fin (3+2*s) → Matrix (Fin n) (Fin n) ℂ)
+    (third : ∀ x : Fin n → ℂ, x≠0 → 2≤(Matrix.of (fun i a => ∑ k,x k*T a i k)).rank)
+    (second : ∀ y : Fin n → ℂ, y≠0 → 2≤(Matrix.of (fun k a => ∑ i,y i*T a i k)).rank) :
+    Decomp (3+2*s) n n ((2*n-1)+s*n) T := by
+  by_cases hn : n=0
+  · subst n
+    exact ⟨0,0,0,fun _ i => Fin.elim0 i⟩
+  obtain ⟨q,b,z,ind,cover⟩ := regular_triple_of_high (by omega : 2≤3+2*s) (by omega : 0<n) T third second
+  exact RegularExtension.decomp_of_matched_triple T ![q,b,z] ind cover
+
+/-- The statement with a separately specified odd first dimension. -/
+theorem decomp_of_high_size {m n s : ℕ} (hm : m=3+2*s) (T : Fin m → Matrix (Fin n) (Fin n) ℂ)
+    (third : ∀ x : Fin n → ℂ, x≠0 → 2≤(Matrix.of (fun i a => ∑ k,x k*T a i k)).rank)
+    (second : ∀ y : Fin n → ℂ, y≠0 → 2≤(Matrix.of (fun k a => ∑ i,y i*T a i k)).rank) :
+    Decomp m n n ((2*n-1)+s*n) T := by
+  subst m
+  exact decomp_of_high T third second
+
+end MaxCube.OddCore
+
+namespace MaxCube.EvenMidpoint
+
+/-- A bounded-rank matrix is a sum of that many outer products, including zero padding. -/
+private lemma low_rank_coordinates {b c r : ℕ} (M : Matrix (Fin b) (Fin c) ℂ) (hr : M.rank ≤ r) :
+    ∃ y : Fin r → Fin b → ℂ, ∃ z : Fin r → Fin c → ℂ, ∀ i j, M i j = ∑ t,y t i*z t j := by
+  classical
+  let V := LinearMap.range M.mulVecLin
+  let basis : Module.Basis (Fin M.rank) ℂ V := Module.finBasis ℂ V
+  let column (j : Fin c) : V := ⟨M.col j,Pi.single j 1,Matrix.mulVec_single_one M j⟩
+  let u (t : Fin M.rank) (i : Fin b) := ((basis t : V) : Fin b → ℂ) i
+  let v (t : Fin M.rank) (j : Fin c) := basis.repr (column j) t
+  have hm (i : Fin b) (j : Fin c) : M i j=∑ t,u t i*v t j := by
+    have hh := congrArg (fun w : V => (w : Fin b → ℂ) i) (basis.sum_repr (column j))
+    change ((∑ t,basis.repr (column j) t • basis t : V) : Fin b → ℂ) i=M i j at hh
+    simpa only [u,v,Submodule.coe_sum,Submodule.coe_smul_of_tower,Finset.sum_apply,Pi.smul_apply,smul_eq_mul,mul_comm] using hh.symm
+  let e : Fin M.rank ⊕ Fin (r-M.rank) ≃ Fin r := Fintype.equivOfCardEq (by simp; omega)
+  refine ⟨fun t => (e.symm t).elim u 0,fun t => (e.symm t).elim v 0,?_⟩
+  intro i j
+  let w (t : Fin M.rank ⊕ Fin (r-M.rank)) := (t.elim u 0) i*(t.elim v 0) j
+  change M i j=∑ t : Fin r,w (e.symm t)
+  rw [e.symm.sum_comp,Fintype.sum_sum_type]
+  simpa [w] using hm i j
+
+/-- When one coefficient is nonzero, the contraction and all the other
+original slices together determine the full tensor. -/
+theorem decomp_of_selected_contraction {a b c s r : ℕ}
+    (T : Fin (a+1) → Matrix (Fin b) (Fin c) ℂ) (p : Fin (a+1) → ℂ)
+    (l : Fin (a+1)) (hl : p l ≠ 0)
+    (remaining : Decomp a b c s (fun t : Fin a => T (l.succAbove t)))
+    (hr : (Matrix.of (fun j k => ∑ i, p i*T i j k)).rank ≤ r) :
+    Decomp (a+1) b c (s+r) T := by
+  classical
+  let C : Matrix (Fin b) (Fin c) ℂ := Matrix.of (fun j k => ∑ i,p i*T i j k)
+  obtain ⟨u,y,z,hu⟩ := remaining
+  obtain ⟨y₁,z₁,hh⟩ := low_rank_coordinates C hr
+  let Y : Fin s ⊕ Fin r → Fin b → ℂ := Sum.elim y y₁
+  let Z : Fin s ⊕ Fin r → Fin c → ℂ := Sum.elim z z₁
+  let F (t : Fin s ⊕ Fin r) : Matrix (Fin b) (Fin c) ℂ := fun j k => Y t j*Z t k
+  let W := Submodule.span ℂ (Set.range F)
+  have mem (t : Fin s ⊕ Fin r) : F t ∈ W := Submodule.subset_span ⟨t,rfl⟩
+  have hC : C ∈ W := by
+    have eq : C=∑ t : Fin r,F (.inr t) := by
+      ext j k
+      rw [Matrix.sum_apply]
+      exact hh j k
+    rw [eq]
+    exact W.sum_mem fun t _ => mem (.inr t)
+  have other (t : Fin a) : T (l.succAbove t) ∈ W := by
+    have eq : T (l.succAbove t)=∑ u' : Fin s,u u' t • F (.inl u') := by
+      ext j k
+      simp only [Matrix.sum_apply,Matrix.smul_apply,smul_eq_mul]
+      exact hu t j k
+    rw [eq]
+    exact W.sum_mem fun t' _ => W.smul_mem _ (mem (.inl t'))
+  have eq : C=p l • T l + ∑ t : Fin a,p (l.succAbove t) • T (l.succAbove t) := by
+    have hs : C=∑ i,p i • T i := by ext j k; simp [C,Matrix.sum_apply,Matrix.smul_apply,smul_eq_mul]
+    exact hs.trans (Fin.sum_univ_succAbove (fun i => p i • T i) l)
+  have hlT : T l ∈ W := by
+    have hsum : (∑ t : Fin a,p (l.succAbove t) • T (l.succAbove t)) ∈ W :=
+      W.sum_mem fun t _ => W.smul_mem _ (other t)
+    have hm : p l • T l ∈ W := by simpa only [eq,add_sub_cancel_right] using W.sub_mem hC hsum
+    simpa only [smul_smul,inv_mul_cancel₀ hl,one_smul] using W.smul_mem (p l)⁻¹ hm
+  have allmem (i : Fin (a+1)) : T i ∈ W := by
+    by_cases he : i=l
+    · exact he ▸ hlT
+    · obtain ⟨t,rfl⟩ := Fin.exists_succAbove_eq he
+      exact other t
+  have coeff (i : Fin (a+1)) : ∃ v : Fin s ⊕ Fin r → ℂ, ∑ t,v t • F t=T i :=
+    (Submodule.mem_span_range_iff_exists_fun ℂ).mp (allmem i)
+  choose v hv using coeff
+  let e : Fin s ⊕ Fin r ≃ Fin (s+r) := finSumFinEquiv
+  refine ⟨fun t i => v i (e.symm t),fun t => Y (e.symm t),fun t => Z (e.symm t),?_⟩
+  intro i j k
+  let term (t : Fin s ⊕ Fin r) := v i t*(Y t j*Z t k)
+  change T i j k=∑ t : Fin (s+r),term (e.symm t)
+  rw [e.symm.sum_comp]
+  have hc := (congrArg (fun m : Matrix (Fin b) (Fin c) ℂ => m j k) (hv i)).symm
+  change T i j k = (∑ t,v i t • F t) j k at hc
+  simpa only [Matrix.sum_apply,Matrix.smul_apply,smul_eq_mul] using hc
+
+end MaxCube.EvenMidpoint
+
+namespace MaxCube.EvenMidpoint
+
+/-- Omitting any one column reduces matrix rank by at most one. -/
+theorem rank_le_drop_column_add_one {K I : Type*} [Field K] [Fintype I] {a : ℕ}
+    (M : Matrix I (Fin (a+1)) K) (l : Fin (a+1)) :
+    M.rank ≤ (M.submatrix id l.succAbove).rank + 1 := by
+  classical
+  let S := Submodule.span K (Set.range (M.submatrix id l.succAbove).col)
+  let P := Submodule.span K ({M.col l} : Set (I → K))
+  have incl : Submodule.span K (Set.range M.col) ≤ S ⊔ P := by
+    apply Submodule.span_le.mpr
+    rintro _ ⟨j,rfl⟩
+    by_cases h : j = l
+    · subst j
+      exact (show P ≤ S ⊔ P from le_sup_right) (Submodule.subset_span (Set.mem_singleton _))
+    · obtain ⟨t,rfl⟩ := Fin.exists_succAbove_eq h
+      exact (show S ≤ S ⊔ P from le_sup_left) (Submodule.subset_span ⟨t,rfl⟩)
+  have hp : Module.finrank K P ≤ 1 := by
+    simpa only [P, Set.toFinset_singleton, Finset.card_singleton] using
+      (finrank_span_le_card (R := K) ({M.col l} : Set (I → K)))
+  calc
+    M.rank = _ := M.rank_eq_finrank_span_cols
+    _ ≤ Module.finrank K (S ⊔ P : Submodule K (I → K)) := Submodule.finrank_mono incl
+    _ ≤ Module.finrank K S + Module.finrank K P := Submodule.finrank_add_le_finrank_add_finrank S P
+    _ ≤ (M.submatrix id l.succAbove).rank + 1 := by
+      rw [Matrix.rank_eq_finrank_span_cols]
+      exact Nat.add_le_add_left hp _
+
+private theorem midpoint_of_eq {n k : ℕ} (hn : n = 2*k) (hk : 3 ≤ k)
+    (T : Fin n → Matrix (Fin n) (Fin n) ℂ)
+    (hy : ∀ y : Fin n → ℂ, y ≠ 0 → k ≤ (Matrix.of (fun l i => ∑ j, y j*T i j l)).rank)
+    (hz : ∀ z : Fin n → ℂ, z ≠ 0 → k ≤ (Matrix.of (fun i j => ∑ l, z l*T i j l)).rank)
+    (p : Fin n → ℂ) (hp : p ≠ 0)
+    (hr : (Matrix.of (fun j l => ∑ i, p i*T i j l)).rank ≤ k) :
+    Decomp n n n (k*n+k-1) T := by
+  classical
+  cases n with
+  | zero => omega
+  | succ a =>
+    obtain ⟨l,hl⟩ : ∃ l, p l ≠ 0 := by
+      by_contra! h
+      exact hp (funext h)
+    let U (t : Fin a) := T (l.succAbove t)
+    have third (z : Fin (a+1) → ℂ) (hx : z ≠ 0) :
+        2 ≤ (Matrix.of (fun j t => ∑ q, z q*U t j q)).rank := by
+      let M := Matrix.of (fun j i => ∑ q, z q*T i j q)
+      have hm : k ≤ M.rank := by
+        rw [← M.rank_transpose]
+        exact hz z hx
+      have drop := rank_le_drop_column_add_one M l
+      change 2 ≤ (M.submatrix id l.succAbove).rank
+      omega
+    have second (y : Fin (a+1) → ℂ) (hx : y ≠ 0) :
+        2 ≤ (Matrix.of (fun q t => ∑ j, y j*U t j q)).rank := by
+      let M := Matrix.of (fun q i => ∑ j, y j*T i j q)
+      have hm : k ≤ M.rank := hy y hx
+      have drop := rank_le_drop_column_add_one M l
+      change 2 ≤ (M.submatrix id l.succAbove).rank
+      omega
+    have core := OddCore.decomp_of_high_size (s := k-2) (by omega : a=3+2*(k-2)) U third second
+    have whole := decomp_of_selected_contraction T p l hl core hr
+    have split : (k-2+2)*(a+1)=k*(a+1) :=
+      congrArg (fun x => x*(a+1)) (show k-2+2=k by omega)
+    rw [Nat.add_mul] at split
+    have count : 2*(a+1)-1+(k-2)*(a+1)+k = k*(a+1)+k-1 := by omega
+    rwa [count] at whole
+
+/-- A first-mode contraction of rank at most half the side, together
+with the two transverse lower bounds, saves a term in an even cube. -/
+theorem midpoint {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (hy : ∀ y : Fin (2*k) → ℂ, y ≠ 0 → k ≤ (Matrix.of (fun l i => ∑ j, y j*T i j l)).rank)
+    (hz : ∀ z : Fin (2*k) → ℂ, z ≠ 0 → k ≤ (Matrix.of (fun i j => ∑ l, z l*T i j l)).rank)
+    (p : Fin (2*k) → ℂ) (hp : p ≠ 0)
+    (hr : (Matrix.of (fun j l => ∑ i, p i*T i j l)).rank ≤ k) :
+    Decomp (2*k) (2*k) (2*k) (k*(2*k)+k-1) T :=
+  midpoint_of_eq rfl hk T hy hz p hp hr
+
+end MaxCube.EvenMidpoint
+
+namespace MaxCube.EvenSpectral
+
+open Matrix Polynomial
+
+/-- The top coefficient of a degree-`n` separable pencil gives a regular leading
+slice. Negating the second slice matches the `CP3.Good` convention. -/
+theorem good_of_separable {n : ℕ} (A B : Matrix (Fin n) (Fin n) ℂ)
+    (degree : ((X : ℂ[X]) • A.map C - B.map C).det.natDegree = n)
+    (separable : ((X : ℂ[X]) • A.map C - B.map C).det.Separable) :
+    CP3.Good A (-B) := by
+  have neg_map : (-B).map (C : ℂ →+* ℂ[X]) = -(B.map C) := by ext i j; simp
+  have coeff : ((X : ℂ[X]) • A.map C - B.map C).det.coeff n = A.det := by
+    rw [sub_eq_add_neg, ← neg_map]
+    simpa only [Fintype.card_fin] using coeff_det_X_add_C_card A (-B)
+  refine ⟨?_,?_⟩
+  · have nonzero := leadingCoeff_ne_zero.mpr separable.ne_zero
+    rwa [← coeff_natDegree, degree, coeff] at nonzero
+  · simpa only [CP3.penPoly, neg_map, sub_eq_add_neg] using separable
+
+private lemma factors_mul {n : ℕ} (x y : Fin n → Fin n → ℂ) :
+    (Matrix.of fun i j => x j i) * (Matrix.of fun i j => y i j) =
+      ∑ t, vecMulVec (x t) (y t) := by
+  ext i j
+  simp only [Matrix.mul_apply, Matrix.of_apply, Matrix.sum_apply, Matrix.vecMulVec_apply]
+
+private lemma factors_diagonal {n : ℕ} (x y : Fin n → Fin n → ℂ) (μ : Fin n → ℂ) :
+    (Matrix.of fun i j => x j i) * diagonal μ * (Matrix.of fun i j => y i j) =
+      ∑ t, μ t • vecMulVec (x t) (y t) := by
+  ext i j
+  rw [Matrix.mul_apply, Matrix.sum_apply]
+  simp only [Matrix.mul_diagonal, Matrix.of_apply, Matrix.smul_apply, smul_eq_mul,
+    Matrix.vecMulVec_apply]
+  apply Finset.sum_congr rfl
+  intro t _
+  ring
+
+/-- Both slices use the same `n` pure matrices. Their left factors form the
+columns of an invertible matrix and their right factors form the rows of one. -/
+theorem common_factors {n : ℕ} (A B : Matrix (Fin n) (Fin n) ℂ)
+    (degree : ((X : ℂ[X]) • A.map C - B.map C).det.natDegree = n)
+    (separable : ((X : ℂ[X]) • A.map C - B.map C).det.Separable) :
+    ∃ x y : Fin n → Fin n → ℂ, ∃ μ : Fin n → ℂ,
+      IsUnit (Matrix.of fun i j => x j i) ∧ IsUnit (Matrix.of fun i j => y i j) ∧
+      A = ∑ t, vecMulVec (x t) (y t) ∧ B = ∑ t, μ t • vecMulVec (x t) (y t) := by
+  have good := good_of_separable A B degree separable
+  obtain ⟨x,y,c,ha,hb⟩ := CP3.nice_of_good A (-B) good
+  have units : ((Matrix.of fun i j => x j i) * (Matrix.of fun i j => y i j)).det ≠ 0 := by
+    rw [factors_mul, ← ha]
+    exact good.1
+  rw [Matrix.det_mul] at units
+  obtain ⟨left,right⟩ := mul_ne_zero_iff.mp units
+  refine ⟨x,y,fun t => -c t,(Matrix.isUnit_iff_isUnit_det _).mpr (isUnit_iff_ne_zero.mpr left),
+    (Matrix.isUnit_iff_isUnit_det _).mpr (isUnit_iff_ne_zero.mpr right),ha,?_⟩
+  simpa only [neg_neg, ← Finset.sum_neg_distrib, neg_smul] using congrArg Neg.neg hb
+
+/-- Invertible changes on the two factors take the leading slice to the
+identity and the other slice to a diagonal matrix. -/
+theorem simultaneous_diagonal {n : ℕ} (A B : Matrix (Fin n) (Fin n) ℂ)
+    (degree : ((X : ℂ[X]) • A.map C - B.map C).det.natDegree = n)
+    (separable : ((X : ℂ[X]) • A.map C - B.map C).det.Separable) :
+    ∃ L R : Matrix (Fin n) (Fin n) ℂ, ∃ μ : Fin n → ℂ,
+      L.det ≠ 0 ∧ R.det ≠ 0 ∧ L*A*R = 1 ∧ L*B*R = diagonal μ := by
+  obtain ⟨x,y,μ,px,qy,ha,hb⟩ := common_factors A B degree separable
+  let P := Matrix.of fun i j => x j i
+  let Q := Matrix.of fun i j => y i j
+  have hp : IsUnit P.det := (Matrix.isUnit_iff_isUnit_det P).mp px
+  have hq : IsUnit Q.det := (Matrix.isUnit_iff_isUnit_det Q).mp qy
+  have cancel (D : Matrix (Fin n) (Fin n) ℂ) : P⁻¹*(P*D*Q)*Q⁻¹ = D := by
+    rw [← Matrix.mul_assoc, ← Matrix.mul_assoc, Matrix.nonsing_inv_mul _ hp, Matrix.one_mul,
+      Matrix.mul_assoc, Matrix.mul_nonsing_inv _ hq, Matrix.mul_one]
+  refine ⟨P⁻¹,Q⁻¹,μ,?_,?_,?_,?_⟩
+  · rw [Matrix.det_nonsing_inv]
+    exact Ring.isUnit_iff_inverse_ne_zero.mp hp
+  · rw [Matrix.det_nonsing_inv]
+    exact Ring.isUnit_iff_inverse_ne_zero.mp hq
+  · rw [ha, ← factors_mul]
+    simpa only [Matrix.mul_one] using cancel 1
+  · rw [hb, ← factors_diagonal]
+    exact cancel (diagonal μ)
+
+end MaxCube.EvenSpectral
+
+namespace MaxCube.ScalarRepair
+
+private lemma det_of_full {K : Type*} [Field K] {n : ℕ} (M : Matrix (Fin n) (Fin n) K)
+    (full : n≤M.rank) : M.det ≠ 0 := by
+  have ons : Function.Surjective M.mulVecLin := by
+    apply LinearMap.range_eq_top.mp
+    apply Submodule.eq_top_of_finrank_eq
+    change M.rank=Module.finrank K (Fin n → K)
+    rw [Module.finrank_pi,Fintype.card_fin]
+    exact le_antisymm (by simpa only [Fintype.card_fin] using M.rank_le_card_width) full
+  exact isUnit_iff_ne_zero.mp ((Matrix.isUnit_iff_isUnit_det M).mp
+    (Matrix.mulVec_surjective_iff_isUnit.mp ons))
+
+/-- In a rank-deficient matrix one unit-entry update strictly enlarges
+the column space. The coordinate is chosen outside the old column space,
+and its column index meets a nonzero vector in the old kernel. -/
+theorem raise_entry {K : Type*} [Field K] {n : ℕ} (M : Matrix (Fin n) (Fin n) K)
+    (small : M.rank<n) :
+    ∃ i j : Fin n, M.rank < (M+Matrix.vecMulVec (Pi.single i 1) (Pi.single j 1)).rank := by
+  classical
+  let old := LinearMap.range M.mulVecLin
+  have proper : old≠⊤ := by
+    intro top
+    have hd : M.rank=n := calc
+      M.rank = Module.finrank K old := rfl
+      _ = n := by rw [top,finrank_top,Module.finrank_pi,Fintype.card_fin]
+    omega
+  obtain ⟨i,missing⟩ : ∃ i : Fin n, Pi.single i (1:K) ∉ old := by
+    by_contra! all
+    apply proper
+    have incl : Submodule.span K (Set.range (Pi.basisFun K (Fin n))) ≤ old := by
+      apply Submodule.span_le.mpr
+      rintro _ ⟨i,rfl⟩
+      change (Pi.basisFun K (Fin n)) i ∈ old
+      rw [Pi.basisFun_apply]
+      exact all i
+    rw [Module.Basis.span_eq] at incl
+    exact top_unique incl
+  obtain ⟨x,hx,nonzero⟩ : ∃ x : Fin n → K, M.mulVecLin x=0 ∧ x≠0 := by
+    by_contra! none
+    have inject : Function.Injective M.mulVecLin := LinearMap.ker_eq_bot.mp (LinearMap.ker_eq_bot'.mpr none)
+    exact proper (LinearMap.range_eq_top.mpr
+      ((LinearMap.injective_iff_surjective_of_finrank_eq_finrank rfl).mp inject))
+  obtain ⟨j,hj⟩ : ∃ j, x j≠0 := by by_contra! all; exact nonzero (funext all)
+  let e : Fin n → K := Pi.single i 1
+  let N := M+Matrix.vecMulVec e (Pi.single j 1)
+  let W := LinearMap.range N.mulVecLin
+  have action (z : Fin n → K) : N.mulVec z=M.mulVec z+z j • e := by
+    change (M+Matrix.vecMulVec e (Pi.single j 1)).mulVec z = _
+    rw [Matrix.add_mulVec,Matrix.vecMulVec_mulVec,single_one_dotProduct]
+    congr 1
+    funext k
+    exact mul_comm _ _
+  have inserted : e ∈ W := by
+    have scaled : x j • e ∈ W := by
+      refine ⟨x,?_⟩
+      change N.mulVec x = _
+      rw [action,show M.mulVec x=0 from hx,zero_add]
+    simpa only [←mul_smul,inv_mul_cancel₀ hj,one_smul] using W.smul_mem (x j)⁻¹ scaled
+  have include_old : old≤W := by
+    rintro _ ⟨z,rfl⟩
+    have val : N.mulVec z ∈ W := ⟨z,rfl⟩
+    have h := W.sub_mem val (W.smul_mem (z j) inserted)
+    rwa [action,add_sub_cancel_right] at h
+  have strict : old<W := lt_of_le_of_ne include_old (fun same => missing (same ▸ inserted))
+  exact ⟨i,j,Submodule.finrank_lt_finrank_of_lt strict⟩
+
+/-- A number of outer products at least the corank repairs a square
+matrix over any field. A full-rank intermediate matrix uses zero padding. -/
+theorem repair {K : Type*} [Field K] {n : ℕ} (M : Matrix (Fin n) (Fin n) K)
+    (h : ℕ) (capacity : n≤M.rank+h) :
+    ∃ u v : Fin h → Fin n → K, (M+∑ i,Matrix.vecMulVec (u i) (v i)).det≠0 := by
+  classical
+  induction h generalizing M with
+  | zero =>
+    exact ⟨0,0,by simpa using det_of_full M (by omega)⟩
+  | succ h ih =>
+    by_cases full : n≤M.rank
+    · exact ⟨0,0,by simpa using det_of_full M full⟩
+    obtain ⟨i,j,better⟩ := raise_entry M (by omega)
+    let a : Fin n → K := Pi.single i 1
+    let b : Fin n → K := Pi.single j 1
+    let N := M+Matrix.vecMulVec a b
+    have next : n≤N.rank+h := by change n≤(M+Matrix.vecMulVec (Pi.single i 1) (Pi.single j 1)).rank+h; omega
+    obtain ⟨u,v,regular⟩ := ih N next
+    refine ⟨Fin.cons a u,Fin.cons b v,?_⟩
+    rw [Fin.sum_univ_succ]
+    simpa only [Fin.cons_zero,Fin.cons_succ,←add_assoc] using regular
+
+end MaxCube.ScalarRepair
+
+namespace MaxCube.EvenRepair
+
+open Polynomial
+
+/-- A multiaffine family of scalar polynomials is squarefree when its
+parameters can remove every prescribed scalar root. -/
+lemma squarefree_of_regular_fibres {σ : Type*}
+    (F : MvPolynomial σ (Polynomial ℂ)) (multi : ∀ i, F.degreeOf i ≤ 1)
+    (regular : ∀ t : ℂ, ∃ s : σ → ℂ, (MvPolynomial.eval (fun i => C (s i)) F).eval t ≠ 0) :
+    Squarefree F := by
+  classical
+  have hn : F ≠ 0 := by
+    rintro rfl
+    obtain ⟨s,h⟩ := regular 0
+    simp at h
+  apply Multiaffine.squarefree_of_coefficients F hn multi
+  intro t
+  by_contra! all
+  obtain ⟨s,nz⟩ := regular t
+  have divides : (X-C t)^2 ∣ MvPolynomial.eval (fun i => C (s i)) F := by
+    rw [MvPolynomial.eval_eq]
+    exact Finset.dvd_sum (fun m _ => dvd_mul_of_dvd_left (all m) _)
+  obtain ⟨p,eq⟩ := divides
+  apply nz
+  rw [eq]
+  simp
+
+/-- Determinants of the affine pencil specialize to the ordinary scalar
+determinant, including for an empty matrix. -/
+lemma eval_det_pencil {n : ℕ} (A B : Matrix (Fin n) (Fin n) ℂ) (t : ℂ) :
+    (((X : ℂ[X]) • A.map C - B.map C).det).eval t = (t • A - B).det := by
+  change evalRingHom t _ = _
+  rw [RingHom.map_det,RingHom.mapMatrix_apply]
+  congr 1
+  ext i j
+  change (X * C (A i j) - C (B i j)).eval t = t * A i j - B i j
+  simp only [eval_sub,eval_mul,eval_X,eval_C]
+
+end MaxCube.EvenRepair
+
+namespace MaxCube.CubicBound
+
+/-- Splitting at half the side leaves only the case where every nonzero
+first-mode contraction has rank strictly larger than half the side. -/
+theorem even_of_high {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (high : (∀ p : Fin (2*k) → ℂ, p ≠ 0 → k+1 ≤ (∑ i, p i • T i).rank) →
+      Decomp (2*k) (2*k) (2*k) (k*(2*k)+(k-1)) T) :
+    Decomp (2*k) (2*k) (2*k) (k*(2*k)+k-1) T := by
+  classical
+  by_contra failure
+  have transverse := EvenLow.all_contractions_large hk T failure
+  apply failure
+  by_cases small : ∃ p : Fin (2*k) → ℂ, p ≠ 0 ∧
+      (Matrix.of (fun j l => ∑ i, p i*T i j l)).rank ≤ k
+  · obtain ⟨p,hp,hr⟩ := small
+    exact EvenMidpoint.midpoint hk T (fun y hy => (transverse y hy).2.1)
+      (fun z hz => (transverse z hz).2.2) p hp hr
+  · have large (p : Fin (2*k) → ℂ) (hp : p ≠ 0) : k+1 ≤ (∑ i, p i • T i).rank := by
+      have eq : (∑ i, p i • T i) = Matrix.of (fun j l => ∑ i, p i*T i j l) := by
+        ext j l
+        simp [Matrix.sum_apply, Matrix.smul_apply, smul_eq_mul]
+      rw [eq]
+      exact Nat.lt_of_not_ge (fun hr => small ⟨p,hp,hr⟩)
+    have count : k*(2*k)+(k-1) = k*(2*k)+k-1 := by omega
+    exact count ▸ high large
+
+end MaxCube.CubicBound
+
+namespace MaxCube.MultiCorrection
+
+abbrev Slot (n : ℕ) := Fin 2 ⊕ (Fin n ⊕ Fin n)
+abbrev Param (n h : ℕ) := Fin h × Slot n
+
+/-- Each direction has independent slope and constant parameters and two independent vectors. -/
+def pack {n h : ℕ} {S : Type*} (a b : Fin h → S) (u v : Fin h → Fin n → S) : Param n h → S
+  | (l,.inl j) => if j=0 then a l else b l
+  | (l,.inr (.inl i)) => u l i
+  | (l,.inr (.inr i)) => v l i
+
+lemma pack_components {n h : ℕ} {S : Type*} (s : Param n h → S) :
+    pack (fun l => s (l,.inl 0)) (fun l => s (l,.inl 1))
+      (fun l i => s (l,.inr (.inl i))) (fun l i => s (l,.inr (.inr i))) = s := by
+  funext p
+  rcases p with ⟨l,j|i|i⟩
+  · fin_cases j <;> rfl
+  · rfl
+  · rfl
+
+def headMatrix {n : ℕ} {J S : Type*} [Fintype J] [CommRing S]
+    (A : Matrix (Fin n) (Fin n) S) (s : J × Slot n → S) :=
+  A + ∑ l, s (l,.inl 0) • Matrix.vecMulVec (fun i => s (l,.inr (.inl i))) (fun j => s (l,.inr (.inr j)))
+
+def tailMatrix {n : ℕ} {J S : Type*} [Fintype J] [CommRing S]
+    (B : Matrix (Fin n) (Fin n) S) (s : J × Slot n → S) :=
+  B - ∑ l, s (l,.inl 1) • Matrix.vecMulVec (fun i => s (l,.inr (.inl i))) (fun j => s (l,.inr (.inr j)))
+
+lemma head_pack {n h : ℕ} {S : Type*} [CommRing S] (A : Matrix (Fin n) (Fin n) S)
+    (a b : Fin h → S) (u v : Fin h → Fin n → S) :
+    headMatrix A (pack a b u v) = A + ∑ l, a l • Matrix.vecMulVec (u l) (v l) := rfl
+
+lemma tail_pack {n h : ℕ} {S : Type*} [CommRing S] (B : Matrix (Fin n) (Fin n) S)
+    (a b : Fin h → S) (u v : Fin h → Fin n → S) :
+    tailMatrix B (pack a b u v) = B - ∑ l, b l • Matrix.vecMulVec (u l) (v l) := rfl
+
+private def family {n : ℕ} {J S : Type*} [Fintype J] [CommRing S] (t : S)
+    (A B : Matrix (Fin n) (Fin n) S) (s : J × Slot n → S) : Matrix (Fin n) (Fin n) S := fun i j =>
+  t*A i j - B i j + ∑ l, (t*s (l,.inl 0)+s (l,.inl 1))*s (l,.inr (.inl i))*s (l,.inr (.inr j))
+
+/-- The universal corrected determinant of `tA-B+Σ(taᵢ+bᵢ)uᵢvᵢᵀ`. -/
+noncomputable def F {n : ℕ} (h : ℕ) (A B : Matrix (Fin n) (Fin n) ℂ) : MvPolynomial (Param n h) (Polynomial ℂ) :=
+  let ι := (MvPolynomial.C : Polynomial ℂ →+* MvPolynomial (Param n h) (Polynomial ℂ)).comp Polynomial.C
+  (family (MvPolynomial.C Polynomial.X) (A.map ι) (B.map ι) (MvPolynomial.X : Param n h → _)).det
+
+private lemma family_image {n h : ℕ} {S : Type*} [CommRing S] (φ : ℂ →+* S)
+    (A B : Matrix (Fin n) (Fin n) ℂ) (s : Param n h → S)
+    (ψ : MvPolynomial (Param n h) (Polynomial ℂ) →+* Polynomial S)
+    (hc : ∀ c : Polynomial ℂ, ψ (MvPolynomial.C c)=c.map φ)
+    (hx : ∀ i : Param n h, ψ (MvPolynomial.X i)=Polynomial.C (s i)) :
+    ψ (F h A B) = ((Polynomial.X : Polynomial S) • (headMatrix (A.map φ) s).map Polynomial.C -
+      (tailMatrix (B.map φ) s).map Polynomial.C).det := by
+  classical
+  rw [F,RingHom.map_det,RingHom.mapMatrix_apply]
+  congr 1
+  apply Matrix.ext
+  intro i j
+  simp only [family,headMatrix,tailMatrix,Matrix.sub_apply,Matrix.smul_apply,Matrix.map_apply,Matrix.add_apply,
+    Matrix.sum_apply,Matrix.vecMulVec_apply,smul_eq_mul,RingHom.comp_apply,map_sub,map_sum,map_add,map_mul,hc,hx,
+    Polynomial.map_X,Polynomial.map_C,add_mul,Finset.sum_add_distrib,Finset.mul_sum,mul_add,mul_assoc]
+  ring
+
+lemma specialize_F {n : ℕ} (h : ℕ) (A B : Matrix (Fin n) (Fin n) ℂ) (s : Param n h → ℂ) :
+    MvPolynomial.eval (fun i => Polynomial.C (s i)) (F h A B) =
+      ((Polynomial.X : Polynomial ℂ) • (headMatrix A s).map Polynomial.C -
+        (tailMatrix B s).map Polynomial.C).det := by
+  simpa using family_image (RingHom.id ℂ) A B s (MvPolynomial.eval fun i => Polynomial.C (s i))
+    (fun c => by simp) (fun i => MvPolynomial.eval_X i)
+
+/-- Evaluation at both a scalar point and a choice of correction factors gives the ordinary matrix determinant. -/
+lemma specialize_at {n : ℕ} (h : ℕ) (A B : Matrix (Fin n) (Fin n) ℂ) (s : Param n h → ℂ) (t : ℂ) :
+    Polynomial.eval t (MvPolynomial.eval (fun i => Polynomial.C (s i)) (F h A B)) =
+      (t • headMatrix A s - tailMatrix B s).det := by
+  rw [specialize_F]
+  change (Polynomial.evalRingHom t) ((Polynomial.X : Polynomial ℂ) • (headMatrix A s).map Polynomial.C -
+    (tailMatrix B s).map Polynomial.C).det = _
+  rw [RingHom.map_det,RingHom.mapMatrix_apply]
+  congr 1
+  ext i j
+  simp [Matrix.map_apply]
+  exact mul_comm _ _
+
+/-- Complete coefficient rings can also be substituted for the correction parameters. -/
+private lemma swapped {n h : ℕ} (A B : Matrix (Fin n) (Fin n) ℂ) :
+    let R := MvPolynomial (Param n h) ℂ
+    let φ : ℂ →+* R := MvPolynomial.C
+    let β : MvPolynomial (Param n h) (Polynomial ℂ) →+* Polynomial R :=
+      MvPolynomial.eval₂Hom (Polynomial.mapRingHom φ) (fun i => Polynomial.C (MvPolynomial.X i : R))
+    let H := headMatrix (A.map φ) (MvPolynomial.X : Param n h → R)
+    let T := tailMatrix (B.map φ) (MvPolynomial.X : Param n h → R)
+    β (F h A B) = ((Polynomial.X : Polynomial R) • H.map Polynomial.C + (-T).map Polynomial.C).det := by
+  intro R φ β H T
+  have h := family_image φ A B (MvPolynomial.X : Param n h → R) β
+    (fun c => MvPolynomial.eval₂Hom_C _ _ c) (fun i => MvPolynomial.eval₂Hom_X' _ _ i)
+  rw [h]
+  congr 1
+  apply Matrix.ext
+  intro i j
+  simp [H,T,sub_eq_add_neg]
+
+lemma swapped_degree_le {n : ℕ} (h : ℕ) (A B : Matrix (Fin n) (Fin n) ℂ) :
+    (MvPolynomial.eval₂Hom (Polynomial.mapRingHom (MvPolynomial.C : ℂ →+* MvPolynomial (Param n h) ℂ))
+      (fun i : Param n h => Polynomial.C (MvPolynomial.X i : MvPolynomial (Param n h) ℂ)) (F h A B)).natDegree ≤ n := by
+  rw [swapped A B]
+  apply (Polynomial.natDegree_det_X_add_C_le _ _).trans
+  simp
+
+lemma swapped_degree {n : ℕ} (h : ℕ) (A B : Matrix (Fin n) (Fin n) ℂ) (s : Param n h → ℂ)
+    (hs : (headMatrix A s).det ≠ 0) :
+    (MvPolynomial.eval₂Hom (Polynomial.mapRingHom (MvPolynomial.C : ℂ →+* MvPolynomial (Param n h) ℂ))
+      (fun i : Param n h => Polynomial.C (MvPolynomial.X i : MvPolynomial (Param n h) ℂ)) (F h A B)).natDegree=n := by
+  classical
+  let R := MvPolynomial (Param n h) ℂ
+  let φ : ℂ →+* R := MvPolynomial.C
+  let H := headMatrix (A.map φ) (MvPolynomial.X : Param n h → R)
+  let T := tailMatrix (B.map φ) (MvPolynomial.X : Param n h → R)
+  have hH : H.map (MvPolynomial.eval s) = headMatrix A s := by
+    ext i j
+    simp [H,φ,headMatrix,Matrix.map_apply,Matrix.sum_apply,Matrix.vecMulVec_apply]
+    exact MvPolynomial.eval_C _
+  have hn : H.det≠0 := by
+    intro hz
+    apply hs
+    have hm : MvPolynomial.eval s H.det = (H.map (MvPolynomial.eval s)).det := (MvPolynomial.eval s).map_det H
+    simpa only [hz,map_zero,hH] using hm.symm
+  apply le_antisymm (swapped_degree_le h A B)
+  rw [swapped A B]
+  apply Polynomial.le_natDegree_of_ne_zero
+  have hc : ((Polynomial.X : Polynomial R) • H.map Polynomial.C + (-T).map Polynomial.C).det.coeff n = H.det := by
+    simpa only [Fintype.card_fin] using Polynomial.coeff_det_X_add_C_card H (-T)
+  exact hc.trans_ne hn
+
+end MaxCube.MultiCorrection
+
+namespace MaxCube.MultiCorrection
+
+private lemma correction_degree {n h : ℕ} (k : Fin h) (q : Slot n) (a : Fin 2) (i j : Fin n) :
+    let z := MvPolynomial.X (R:=Polynomial ℂ) (σ:=Param n h)
+    (z (k,.inl a)*z (k,.inr (.inl i))*z (k,.inr (.inr j))).degreeOf (k,q) ≤ 1 := by
+  intro z
+  apply (MvPolynomial.degreeOf_mul_le _ _ _).trans
+  apply (Nat.add_le_add_right (MvPolynomial.degreeOf_mul_le _ _ _) _).trans
+  rcases q with u|u|u <;> simp [z,MvPolynomial.degreeOf_X] <;> split <;> decide
+
+private lemma rank_one_degree {σ S R : Type*} [CommRing S] [CommRing R] {n : ℕ} (q : σ)
+    (ι : S →+* MvPolynomial σ R) (absent : ∀ f : S, (ι f).degreeOf q=0)
+    (M : Matrix (Fin n) (Fin n) S) (U V : Fin n → MvPolynomial σ R)
+    (small : ∀ i j, (U i*V j).degreeOf q ≤ 1) :
+    ((M.map ι + Matrix.vecMulVec U V).det).degreeOf q ≤ 1 := by
+  have det_degree : (M.map ι).det.degreeOf q=0 := by
+    have hm : ι M.det=(M.map ι).det := ι.map_det M
+    rw [←hm]
+    exact absent _
+  have adj_degree (i j : Fin n) : ((M.map ι).adjugate j i).degreeOf q=0 := by
+    have mapped : M.adjugate.map ι = (M.map ι).adjugate := ι.map_adjugate M
+    have entry : ι (M.adjugate j i) = (M.map ι).adjugate j i := congrFun (congrFun mapped j) i
+    rw [←entry]
+    exact absent _
+  rw [MaxCube.DetUpdate.det_add_outer]
+  apply (MvPolynomial.degreeOf_add_le _ _ _).trans
+  apply max_le (det_degree.le.trans (by decide : 0≤1))
+  apply (MvPolynomial.degreeOf_sum_le _ _ _).trans
+  apply Finset.sup_le
+  intro i _
+  apply (MvPolynomial.degreeOf_sum_le _ _ _).trans
+  apply Finset.sup_le
+  intro j _
+  have deg := MvPolynomial.degreeOf_mul_le q (U i*V j) ((M.map ι).adjugate j i)
+  rw [adj_degree,add_zero] at deg
+  exact deg.trans (small i j)
+
+/-- Each parameter enters exactly one direction block. Removing that block leaves a matrix
+independent of the parameter, and its correction is one outer product with multiaffine entries. -/
+lemma degreeOf_le_one {n : ℕ} (h : ℕ) (A B : Matrix (Fin n) (Fin n) ℂ) (q : Param n h) :
+    (F h A B).degreeOf q ≤ 1 := by
+  classical
+  rcases q with ⟨k,w⟩
+  let E := Finset.univ.erase k
+  let P := MvPolynomial (Param n h) (Polynomial ℂ)
+  let S := MvPolynomial (E × Slot n) (Polynomial ℂ)
+  let inc (v : E × Slot n) : Param n h := (v.1.val,v.2)
+  let ι : S →+* P := (MvPolynomial.rename inc).toRingHom
+  have absent (f : S) : (ι f).degreeOf (k,w)=0 := by
+    by_contra hq
+    have hmem := MvPolynomial.mem_vars_iff_degreeOf_ne_zero.mpr hq
+    obtain ⟨j,_,hj⟩ := MvPolynomial.mem_vars_rename inc f hmem
+    exact (Finset.mem_erase.mp j.1.property).1 (congrArg Prod.fst hj)
+  let c : ℂ →+* P := (MvPolynomial.C : Polynomial ℂ →+* P).comp Polynomial.C
+  let d : ℂ →+* S := (MvPolynomial.C : Polynomial ℂ →+* S).comp Polynomial.C
+  let T : P := MvPolynomial.C Polynomial.X
+  let z : Param n h → P := MvPolynomial.X
+  let M := family (MvPolynomial.C Polynomial.X) (A.map d) (B.map d) (MvPolynomial.X : E × Slot n → S)
+  let term (i j : Fin n) (l : Fin h) := (T*z (l,.inl 0)+z (l,.inl 1))*z (l,.inr (.inl i))*z (l,.inr (.inr j))
+  let base (i j : Fin n) := T*c (A i j)-c (B i j)
+  have evalM (i j : Fin n) : ι (M i j)=base i j+∑ l ∈ E, term i j l := by
+    calc
+      _ = base i j + ∑ l : E, term i j l.val := by
+        have hc (p : Polynomial ℂ) : ι (MvPolynomial.C p)=MvPolynomial.C p := MvPolynomial.rename_C _ p
+        have hx (l : E) (t : Slot n) : ι (MvPolynomial.X (l,t))=MvPolynomial.X (l.val,t) :=
+          MvPolynomial.rename_X inc (l,t)
+        simp only [M,family,base,term,z,T,c,d,RingHom.comp_apply,Matrix.map_apply,map_add,map_sub,map_sum,map_mul,hc,hx]
+      _ = _ := congrArg (fun U : P => base i j+U) (Finset.sum_attach E (term i j))
+  let U (i : Fin n) := (T*z (k,.inl 0)+z (k,.inl 1))*z (k,.inr (.inl i))
+  let V (j : Fin n) := z (k,.inr (.inr j))
+  have split : F h A B = (M.map ι + Matrix.vecMulVec U V).det := by
+    change (family T (A.map c) (B.map c) z).det = (M.map ι + Matrix.vecMulVec U V).det
+    apply congrArg Matrix.det
+    apply Matrix.ext
+    intro i j
+    change base i j + ∑ l, term i j l = ι (M i j) + U i*V j
+    rw [evalM,add_assoc,← Finset.sum_erase_add Finset.univ (term i j) (Finset.mem_univ k)]
+  rw [split]
+  apply rank_one_degree (k,w) ι absent M U V
+  intro i j
+  have expand : U i*V j = T*(z (k,.inl 0)*z (k,.inr (.inl i))*z (k,.inr (.inr j))) +
+      z (k,.inl 1)*z (k,.inr (.inl i))*z (k,.inr (.inr j)) := by dsimp only [U,V]; ring
+  rw [expand]
+  apply (MvPolynomial.degreeOf_add_le _ _ _).trans
+  apply max_le _ (correction_degree k w 1 i j)
+  exact (MvPolynomial.degreeOf_C_mul_le _ (k,w) Polynomial.X).trans (correction_degree k w 0 i j)
+
+end MaxCube.MultiCorrection
+
+namespace MaxCube.EvenRepair
+
+open Polynomial MultiCorrection
+
+/-- When every projective member of a square matrix pencil has nullity at
+most h, h shared rank-one corrections give a regular simple-spectrum pencil. -/
+theorem pencil {n h : ℕ} (A B : Matrix (Fin n) (Fin n) ℂ)
+    (hinfty : n ≤ A.rank + h) (finite : ∀ t : ℂ, n ≤ (t • A - B).rank + h) :
+    ∃ a b : Fin h → ℂ, ∃ u v : Fin h → Fin n → ℂ,
+      let A' := A + ∑ i, a i • Matrix.vecMulVec (u i) (v i)
+      let B' := B - ∑ i, b i • Matrix.vecMulVec (u i) (v i)
+      let P := ((X : ℂ[X]) • A'.map C - B'.map C).det
+      P.natDegree = n ∧ P.Separable := by
+  classical
+  have regular (t : ℂ) : ∃ s : Param n h → ℂ,
+      (MvPolynomial.eval (fun i => C (s i)) (F h A B)).eval t ≠ 0 := by
+    obtain ⟨u,v,fix⟩ := ScalarRepair.repair (t • A - B) h (finite t)
+    refine ⟨pack (fun _ => 0) (fun _ => 1) u v,?_⟩
+    rw [specialize_F,eval_det_pencil,head_pack,tail_pack]
+    simp only [zero_smul,one_smul,Finset.sum_const_zero,add_zero]
+    have eq : t • A - (B - ∑ i, Matrix.vecMulVec (u i) (v i)) =
+        (t • A - B) + ∑ i, Matrix.vecMulVec (u i) (v i) := by abel
+    rwa [eq]
+  have square := squarefree_of_regular_fibres (F h A B) (degreeOf_le_one h A B) regular
+  obtain ⟨u₀,v₀,atInfinity⟩ := ScalarRepair.repair A h hinfty
+  let w := pack (fun _ => 1) (fun _ => 0) u₀ v₀
+  have hw : (headMatrix A w).det ≠ 0 := by
+    change (headMatrix A (pack (fun _ => 1) (fun _ => 0) u₀ v₀)).det ≠ 0
+    rw [head_pack]
+    simpa only [one_smul] using atInfinity
+  obtain ⟨s,hs,hsep⟩ := SquarefreeSpecialize.of_mv (F h A B) square (swapped_degree h A B w hw)
+  let a (k : Fin h) := s (k,.inl 0)
+  let b (k : Fin h) := s (k,.inl 1)
+  let u (k : Fin h) (i : Fin n) := s (k,.inr (.inl i))
+  let v (k : Fin h) (j : Fin n) := s (k,.inr (.inr j))
+  have eta : pack a b u v = s := pack_components s
+  have identity := specialize_F h A B (pack a b u v)
+  rw [head_pack,tail_pack,eta] at identity
+  exact ⟨a,b,u,v,identity ▸ hs,identity ▸ hsep⟩
+
+end MaxCube.EvenRepair
+
+namespace MaxCube.EvenExtension
+
+open Matrix Polynomial
+
+/-- A repaired simple pencil contributes n matched rank-one terms. Keeping
+the h correction terms in the same cover costs no further terms when pairs
+of the remaining slices are added. -/
+theorem high {k n h : ℕ} (hk : 1≤k)
+    (T : Fin (2*k) → Matrix (Fin n) (Fin n) ℂ)
+    (a b : Fin h → ℂ) (u v : Fin h → Fin n → ℂ)
+    (simple :
+      let A := T ⟨0,by omega⟩ + ∑ j, a j • vecMulVec (u j) (v j)
+      let B := T ⟨1,by omega⟩ - ∑ j, b j • vecMulVec (u j) (v j)
+      let P := ((X : ℂ[X]) • A.map C - B.map C).det
+      P.natDegree=n ∧ P.Separable) :
+    Decomp (2*k) n n (k*n+h) T := by
+  classical
+  let zero : Fin (2*k) := ⟨0,by omega⟩
+  let one : Fin (2*k) := ⟨1,by omega⟩
+  let D (j : Fin h) := vecMulVec (u j) (v j)
+  let A := T zero + ∑ j, a j • D j
+  let B := T one - ∑ j, b j • D j
+  let P := ((X : ℂ[X]) • A.map C - B.map C).det
+  change P.natDegree=n ∧ P.Separable at simple
+  obtain ⟨x,y,μ,_,_,hA,hB⟩ := EvenSpectral.common_factors A B simple.1 simple.2
+  have hreg := (EvenSpectral.good_of_separable A B simple.1 simple.2).1
+  let e : Fin n ⊕ Fin h ≃ Fin (n+h) := finSumFinEquiv
+  let U (t : Fin (n+h)) := (e.symm t).elim x u
+  let V (t : Fin (n+h)) := (e.symm t).elim y v
+  let α (t : Fin (n+h)) := (e.symm t).elim (fun _ => (1:ℂ)) (fun _ => 0)
+  have regular : (∑ t, α t • vecMulVec (U t) (V t)).det ≠ 0 := by
+    rw [← e.sum_comp (fun t => α t • vecMulVec (U t) (V t)), Fintype.sum_sum_type]
+    simpa only [α,U,V,Equiv.symm_apply_apply,Sum.elim_inl,Sum.elim_inr,one_smul,zero_smul,
+      Finset.sum_const_zero,add_zero] using hA ▸ hreg
+  let g : Fin 2 ⊕ (Fin 2 × Fin (k-1)) ≃ Fin (2*k) :=
+    ((Equiv.sumCongr (Equiv.refl _) finProdFinEquiv).trans finSumFinEquiv).trans (finCongr (by omega))
+  let C (j : Fin (k-1)) := T (g (.inr (0,j)))
+  let E (j : Fin (k-1)) := T (g (.inr (1,j)))
+  obtain ⟨x',y',old,pairs⟩ := RegularExtension.extend_rankone_family U V C E α regular
+  let W := Submodule.span ℂ (Set.range fun i => vecMulVec (x' i) (y' i))
+  have matched (i : Fin n) : vecMulVec (x i) (y i) ∈ W := by
+    simpa only [U,V,Equiv.symm_apply_apply,Sum.elim_inl] using old (e (.inl i))
+  have corrected (j : Fin h) : D j ∈ W := by
+    simpa only [U,V,D,Equiv.symm_apply_apply,Sum.elim_inr] using old (e (.inr j))
+  have head₀ : T zero ∈ W := by
+    have he : T zero = (∑ i,vecMulVec (x i) (y i)) - ∑ j,a j • D j := eq_sub_of_add_eq hA
+    rw [he]
+    exact W.sub_mem (W.sum_mem fun i _ => matched i) (W.sum_mem fun j _ => W.smul_mem _ (corrected j))
+  have head₁ : T one ∈ W := by
+    have he : T one = (∑ i,μ i • vecMulVec (x i) (y i)) + ∑ j,b j • D j := eq_add_of_sub_eq hB
+    rw [he]
+    exact W.add_mem (W.sum_mem fun i _ => W.smul_mem _ (matched i))
+      (W.sum_mem fun j _ => W.smul_mem _ (corrected j))
+  have cover : Decomp (2*k) n n ((n+h)+(k-1)*n) T := by
+    apply RegularExtension.decomp_of_span T x' y'
+    intro i
+    obtain ⟨s,rfl⟩ := g.surjective i
+    rcases s with i | ⟨i,j⟩
+    · fin_cases i
+      · exact head₀
+      · exact head₁
+    · fin_cases i
+      · exact (pairs j).1
+      · exact (pairs j).2
+  have count : (n+h)+(k-1)*n=k*n+h := by
+    have he := congrArg (fun d : ℕ => d*n) (Nat.sub_add_cancel hk)
+    nlinarith only [he]
+  rwa [count] at cover
+
+/-- A first-mode contraction bound supplies both projective inequalities
+for the pencil on the first two coordinate slices. -/
+theorem first_mode_parameters {k : ℕ} (hk : 1≤k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (hi : ∀ p : Fin (2*k) → ℂ, p ≠ 0 → k+1 ≤ (∑ i,p i • T i).rank) :
+    2*k ≤ (T ⟨0,by omega⟩).rank + (k-1) ∧
+      ∀ t : ℂ, 2*k ≤ (t • T ⟨0,by omega⟩ - T ⟨1,by omega⟩).rank + (k-1) := by
+  classical
+  let i₀ : Fin (2*k) := ⟨0,by omega⟩
+  let i₁ : Fin (2*k) := ⟨1,by omega⟩
+  have hne : i₁ ≠ i₀ := by intro he; have hv := congrArg Fin.val he; exact Nat.one_ne_zero hv
+  have e₀ : (Pi.single i₀ 1 : Fin (2*k) → ℂ) ≠ 0 := by
+    intro he
+    have ee := congrFun he i₀
+    simp at ee
+  let D := Fintype.linearCombination ℂ T
+  have h₀ := hi (Pi.single i₀ 1) e₀
+  change k+1 ≤ (D (Pi.single i₀ 1)).rank at h₀
+  simp only [D,Fintype.linearCombination_apply_single,one_smul] at h₀
+  refine ⟨by change 2*k ≤ (T i₀).rank + (k-1); omega,?_⟩
+  intro t
+  let e : Fin (2*k) → ℂ := Pi.single i₀ t - Pi.single i₁ 1
+  have he : e ≠ 0 := by
+    intro hh
+    have ev := congrFun hh i₁
+    simp [e, hne] at ev
+  have h₁ := hi e he
+  change k+1 ≤ (D e).rank at h₁
+  simp only [D,e,map_sub,Fintype.linearCombination_apply_single,one_smul] at h₁
+  change 2*k ≤ (t • T i₀ - T i₁).rank + (k-1)
+  omega
+
+end MaxCube.EvenExtension
+
+namespace MaxCube.EvenExtension
+
+open Matrix
+
+/-- A bound on the coranks throughout the projective pencil suffices for
+the corrected-head extension. -/
+theorem high_of_pencil_rank {k n h : ℕ} (hk : 1≤k)
+    (T : Fin (2*k) → Matrix (Fin n) (Fin n) ℂ)
+    (infty : n ≤ (T ⟨0,by omega⟩).rank+h)
+    (finite : ∀ t : ℂ, n ≤ (t • T ⟨0,by omega⟩-T ⟨1,by omega⟩).rank+h) :
+    Decomp (2*k) n n (k*n+h) T := by
+  obtain ⟨a,b,u,v,simple⟩ := EvenRepair.pencil (T ⟨0,by omega⟩) (T ⟨1,by omega⟩) infty finite
+  exact high hk T a b u v simple
+
+/-- If all nontrivial first-mode contractions of a side-2k cube have
+rank at least k+1, the high-rank pencil repair gives at most kn+k-1 terms
+with n=2k. -/
+theorem cube_high {k : ℕ} (hk : 1≤k) (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ)
+    (hi : ∀ p : Fin (2*k) → ℂ, p ≠ 0 → k+1 ≤ (∑ i,p i • T i).rank) :
+    Decomp (2*k) (2*k) (2*k) (k*(2*k)+(k-1)) T := by
+  obtain ⟨hInf,hfin⟩ := first_mode_parameters hk T hi
+  exact high_of_pencil_rank hk T hInf hfin
+
+end MaxCube.EvenExtension
+
+namespace MaxCube.CubicBound
+
+open Arxiv.«0805.3777»
+
+/-- Every even complex cube of side `2*k ≥ 6` has a decomposition of
+length at most `k*(2*k)+k-1`. -/
+theorem decomp_even {k : ℕ} (hk : 3 ≤ k)
+    (T : Fin (2*k) → Matrix (Fin (2*k)) (Fin (2*k)) ℂ) :
+    Decomp (2*k) (2*k) (2*k) (k*(2*k)+k-1) T :=
+  even_of_high hk T (EvenExtension.cube_high (by omega) T)
+
+theorem cprank_even {k : ℕ} (hk : 3 ≤ k) (T : Holor ℂ [2*k,2*k,2*k]) :
+    T.cprank ≤ (2*k)*(2*k+1)/2-1 := by
+  have double : (2*k)*(2*k+1) = (k*(2*k)+k)*2 := by ring
+  rw [double, Nat.mul_div_cancel _ (by decide)]
+  have bound := (cprank_le_iff_decomp (readCoordinates T) _).mpr (decomp_even hk (readCoordinates T))
+  rwa [coordinateHolor_readCoordinates] at bound
+
+/-- A uniform upper bound for the ordinary CP rank of every complex cubic
+tensor of side at least three. -/
+theorem cprank_le {n : ℕ} (hn : 3 ≤ n) (T : Holor ℂ [n,n,n]) :
+    T.cprank ≤ n*(n+1)/2-1 := by
+  obtain ⟨k,heven|hodd⟩ := Nat.even_or_odd' n
+  · by_cases four : n = 4
+    · subst four
+      exact four_cube_upper T
+    subst n
+    exact cprank_even (by omega) T
+  · exact OddCube.cprank_le_of_three_le hn ⟨k,hodd⟩ T
+
+theorem max_rank_le {n R : ℕ} (hn : 3 ≤ n) (hm : IsMaxRank [n,n,n] R) :
+    R ≤ n*(n+1)/2-1 := by
+  obtain ⟨T,rfl⟩ := hm.1
+  exact cprank_le hn T
+
+theorem cprank_six (T : Holor ℂ [6,6,6]) : T.cprank ≤ 20 := cprank_le (by decide) T
+
+theorem cprank_eight (T : Holor ℂ [8,8,8]) : T.cprank ≤ 35 := cprank_le (by decide) T
+
+end MaxCube.CubicBound
